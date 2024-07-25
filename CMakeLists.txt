@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.10)
 project(Project)
 
+if(Kokkos_ENABLE_CUDA)
+    find_program(CUDA_NVCC_EXECUTABLE nvcc)
+    if(CUDA_NVCC_EXECUTABLE)
+        set(CMAKE_CUDA_COMPILER_WRAPPER ${CUDA_NVCC_EXECUTABLE})
+        message(STATUS "Using nvcc_wrapper for CUDA compilation")
+    else()
+        message(SEND_ERROR "nvcc not found")
+    endif()
+endif()
+
 add_subdirectory(kokkos)
 add_executable(main main.cpp)
 target_link_libraries(main Kokkos::kokkos)
