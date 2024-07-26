@@ -1,35 +1,33 @@
 #include <iostream>
 #include <fstream>
-#include <complex>
-#include <vector>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
 
-const int MAX_ITER = 1000;
+const int MAX_ITER = 50;
 
 struct RGB {
-    uint8_t r, g, b;
+    unsigned char r, g, b;
 };
 
 void saveBMP(const char* filename, Kokkos::View<RGB**, Kokkos::HostSpace> h_pixels) {
     const int HEIGHT = h_pixels.extent(0), WIDTH = h_pixels.extent(1);
     int filesize = 54 + 3 * WIDTH * HEIGHT;
-    uint8_t bmpfileheader[14] = {'B', 'M', 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0};
-    uint8_t bmpinfoheader[40] = {40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 24, 0};
+    unsigned char bmpfileheader[14] = {'B', 'M', 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0};
+    unsigned char bmpinfoheader[40] = {40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 24, 0};
 
-    bmpfileheader[ 2] = (uint8_t)(filesize    );
-    bmpfileheader[ 3] = (uint8_t)(filesize>> 8);
-    bmpfileheader[ 4] = (uint8_t)(filesize>>16);
-    bmpfileheader[ 5] = (uint8_t)(filesize>>24);
+    bmpfileheader[ 2] = (unsigned char)(filesize    );
+    bmpfileheader[ 3] = (unsigned char)(filesize>> 8);
+    bmpfileheader[ 4] = (unsigned char)(filesize>>16);
+    bmpfileheader[ 5] = (unsigned char)(filesize>>24);
 
-    bmpinfoheader[ 4] = (uint8_t)(WIDTH    );
-    bmpinfoheader[ 5] = (uint8_t)(WIDTH>> 8);
-    bmpinfoheader[ 6] = (uint8_t)(WIDTH>>16);
-    bmpinfoheader[ 7] = (uint8_t)(WIDTH>>24);
-    bmpinfoheader[ 8] = (uint8_t)(HEIGHT    );
-    bmpinfoheader[ 9] = (uint8_t)(HEIGHT>> 8);
-    bmpinfoheader[10] = (uint8_t)(HEIGHT>>16);
-    bmpinfoheader[11] = (uint8_t)(HEIGHT>>24);
+    bmpinfoheader[ 4] = (unsigned char)(WIDTH    );
+    bmpinfoheader[ 5] = (unsigned char)(WIDTH>> 8);
+    bmpinfoheader[ 6] = (unsigned char)(WIDTH>>16);
+    bmpinfoheader[ 7] = (unsigned char)(WIDTH>>24);
+    bmpinfoheader[ 8] = (unsigned char)(HEIGHT    );
+    bmpinfoheader[ 9] = (unsigned char)(HEIGHT>> 8);
+    bmpinfoheader[10] = (unsigned char)(HEIGHT>>16);
+    bmpinfoheader[11] = (unsigned char)(HEIGHT>>24);
 
     std::ofstream out(filename, std::ios::out | std::ios::binary);
     out.write(reinterpret_cast<char*>(bmpfileheader), 14);
@@ -38,7 +36,7 @@ void saveBMP(const char* filename, Kokkos::View<RGB**, Kokkos::HostSpace> h_pixe
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             RGB& pixel = h_pixels(HEIGHT - y - 1, x);
-            uint8_t color[3] = {pixel.b, pixel.g, pixel.r};
+            unsigned char color[3] = {pixel.b, pixel.g, pixel.r};
             out.write(reinterpret_cast<char*>(color), 3);
         }
     }
@@ -55,15 +53,10 @@ Kokkos::View<RGB**, Kokkos::HostSpace> generateMandelbrot(const int HEIGHT, cons
             z = z*z + point;
             iter++;
         }
-
         if (iter < MAX_ITER) {
-            pixels(y, x).r = iter % 256;
-            pixels(y, x).g = (iter * 2) % 256;
-            pixels(y, x).b = (iter * 5) % 256;
-        } else {
-            pixels(y, x).r = 0;
-            pixels(y, x).g = 0;
-            pixels(y, x).b = 0;
+            pixels(y, x).r = iter;
+            pixels(y, x).g = iter * 2;
+            pixels(y, x).b = iter * 5;
         }
     });
     return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), pixels);
@@ -75,7 +68,7 @@ Kokkos::initialize();
     Kokkos::Timer tm;
     tm.reset();
 
-    const int HEIGHT = 12800, WIDTH = 12800;
+    const int HEIGHT = 3200, WIDTH = 3200;
     auto h_pixels = generateMandelbrot(HEIGHT, WIDTH);
 
     std::cout << "duration: " << tm.seconds() << "\n";
