@@ -3,16 +3,16 @@
 #include <complex>
 #include <vector>
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Timer.hpp>
 
-const int WIDTH = 12800;
-const int HEIGHT = 12800;
 const int MAX_ITER = 1000;
 
 struct RGB {
     uint8_t r, g, b;
 };
 
-void saveBMP(const char* filename, Kokkos::View<RGB**> pixels) {
+void saveBMP(const char* filename, Kokkos::View<RGB**, Kokkos::HostSpace> h_pixels) {
+    const int HEIGHT = h_pixels.extent(0), WIDTH = h_pixels.extent(1);
     int filesize = 54 + 3 * WIDTH * HEIGHT;
     uint8_t bmpfileheader[14] = {'B', 'M', 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0};
     uint8_t bmpinfoheader[40] = {40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 24, 0};
@@ -31,15 +31,13 @@ void saveBMP(const char* filename, Kokkos::View<RGB**> pixels) {
     bmpinfoheader[10] = (uint8_t)(HEIGHT>>16);
     bmpinfoheader[11] = (uint8_t)(HEIGHT>>24);
 
-    auto pixels_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), pixels);
-
     std::ofstream out(filename, std::ios::out | std::ios::binary);
     out.write(reinterpret_cast<char*>(bmpfileheader), 14);
     out.write(reinterpret_cast<char*>(bmpinfoheader), 40);
 
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
-            RGB pixel = pixels_h(HEIGHT - y - 1, x);
+            RGB& pixel = h_pixels(HEIGHT - y - 1, x);
             uint8_t color[3] = {pixel.b, pixel.g, pixel.r};
             out.write(reinterpret_cast<char*>(color), 3);
         }
@@ -47,7 +45,8 @@ void saveBMP(const char* filename, Kokkos::View<RGB**> pixels) {
     out.close();
 }
 
-void generateMandelbrot(Kokkos::View<RGB**> pixels) {
+Kokkos::View<RGB**, Kokkos::HostSpace> generateMandelbrot(const int HEIGHT, const int WIDTH) {
+    Kokkos::View<RGB**, Kokkos::LayoutRight> pixels("pixels", HEIGHT, WIDTH);
     Kokkos::parallel_for(Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0, 0}, {HEIGHT, WIDTH}), KOKKOS_LAMBDA(int y, int x) {
         Kokkos::complex<double> point((x - WIDTH/2.0) * 4.0 / WIDTH, (y - HEIGHT/2.0) * 4.0 / HEIGHT);
         Kokkos::complex<double> z(0, 0);
@@ -67,15 +66,21 @@ void generateMandelbrot(Kokkos::View<RGB**> pixels) {
             pixels(y, x).b = 0;
         }
     });
+    return Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), pixels);
 }
 
 int main() {
 Kokkos::initialize();
 {
-    Kokkos::View<RGB**> pixels("state", HEIGHT, WIDTH);
+    Kokkos::Timer tm;
+    tm.reset();
 
-    generateMandelbrot(pixels);
-    saveBMP("mandelbrot.bmp", pixels);
+    const int HEIGHT = 12800, WIDTH = 12800;
+    auto h_pixels = generateMandelbrot(HEIGHT, WIDTH);
+
+    std::cout << "duration: " << tm.seconds() << "\n";
+
+    saveBMP("mandelbrot.bmp", h_pixels);
 
     std::cout << "Mandelbrot image saved as mandelbrot.bmp" << std::endl;
 
