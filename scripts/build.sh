@@ -8,7 +8,9 @@ if [ "$1" == "--gpu" ] || [ "$1" == "-g" ]; then
     -DKokkos_ENABLE_CUDA=ON \
     -DKokkos_ARCH_AMPERE86=ON \
     -DCMAKE_BUILD_TYPE=Release
-else
+elif [ "$1" == "--serial" ] || [ "$1" == "-s" ]; then
+    cmake .. -DKokkos_ENABLE_OPENMP=OFF -DCMAKE_BUILD_TYPE=Release
+else 
     cmake .. -DKokkos_ENABLE_OPENMP=ON -DCMAKE_BUILD_TYPE=Release
 fi
 make -j4

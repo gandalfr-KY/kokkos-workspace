@@ -10,6 +10,7 @@ if(Kokkos_ENABLE_CUDA)
         message(SEND_ERROR "nvcc not found")
     endif()
 endif()
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 add_subdirectory(kokkos)
 add_executable(main main.cpp)
